@@ -10,6 +10,19 @@ pub struct E {
     g: String
 }
 
+pub enum Sort {
+    RealEstate,
+    Product,
+    Service
+}
+
+pub struct RealEstate {
+    r: i64, // rooms
+    f: bool, // for sale
+    c: bool, // has cleaners
+    p: i64, // price
+}
+
 pub fn e(ui: &mut egui::Ui, e: E) {
     /*
         name

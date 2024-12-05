@@ -2,6 +2,15 @@ use std::sync::Arc;
 
 use egui::mutex::Mutex;
 
+use crate::{exams::Exams, line::Line};
+
+#[derive(serde::Deserialize, serde::Serialize, Default, Clone)]
+#[serde(default)]
+pub struct Auth {
+    token: String,
+    user: String,
+}
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -10,22 +19,38 @@ pub struct App {
     score: f32,
     res: Res,
     view: View,
-    
+    #[serde(skip)]
+    pub loading: Arc<Mutex<bool>>,
+    auth: Auth,
+    pub line: Line,
+
     // a
     pub a: String,
-    
+
     #[serde(skip)]
     pub aa: Arc<Mutex<Vec<AA>>>,
     pub sa: String,
     pub a_page: i64,
-    
-    n: String,
-    loading: bool,
-    similarity: String,
-    contact: Vec<Contact>,
-    tags: Vec<String>,
-    results: Vec<Result>,
-    search_tags: Vec<String>,
+    #[serde(skip)]
+    pub a_got: Arc<Mutex<bool>>,
+
+    pub f: F,
+
+    pub e: Exams,
+
+    pub n: String,
+    pub similarity: String,
+    pub contact: Vec<Contact>,
+    pub tags: Vec<String>,
+    pub results: Vec<Result>,
+    pub search_tags: Vec<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
+#[serde(default)]
+pub struct F {
+    q: String,
+    a: Vec<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
@@ -51,9 +76,9 @@ struct Res {
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
 #[serde(default)]
-struct Contact {
-    n: String,
-    l: String,
+pub struct Contact {
+    pub n: String,
+    pub l: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
@@ -62,7 +87,9 @@ enum View {
     A,
     Res,
     Search,
-    EditProfile,
+    Exams,
+    Line,
+    Edit,
 }
 
 impl App {
@@ -89,7 +116,9 @@ impl App {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
 
-        Default::default()
+        let mut a: Self = Default::default();
+        a.a_page = 1;
+        a
     }
 }
 
@@ -115,8 +144,14 @@ impl eframe::App for App {
                     if ui.button("a").clicked() {
                         self.view = View::A;
                     }
+                    if ui.button("line").clicked() {
+                        self.view = View::Line;
+                    }
                     if ui.button("Edit profile").clicked() {
-                        self.view = View::EditProfile;
+                        self.view = View::Edit;
+                    }
+                    if ui.button("Exams").clicked() {
+                        self.view = View::Exams;
                     }
                     if ui.button("Quit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -133,25 +168,13 @@ impl eframe::App for App {
             View::A => {
                 self.a(ui, ctx);
             }
-            View::EditProfile => {
-                ui.text_edit_singleline(&mut self.n);
-                let mut tags = self.tags.clone();
-                for (i, tag) in tags.iter_mut().enumerate() {
-                    ui.text_edit_singleline(tag);
-                    if ui.button("X").clicked() {
-                        self.tags.remove(i);
-                    }
-                }
-                for mut contact in self.contact.clone() {
-                    ui.horizontal(|ui| {
-                        ui.text_edit_singleline(&mut contact.n);
-                        ui.text_edit_singleline(&mut contact.l);
-                    });
-                }
-                if ui.button("save").clicked() {
-                    self.save();
-                }
+            View::Exams => {
+                self.exams(ui);
             }
+            View::Line => {
+                self.line(ui);
+            }
+            View::Edit => self.edit(ui),
             View::Search => {
                 ui.horizontal(|ui| {
                     ui.text_edit_singleline(&mut self.value);
@@ -162,10 +185,8 @@ impl eframe::App for App {
 
                 for res in &mut self.results {
                     if ui.label(res.n.clone()).clicked() {
-                        self.loading = true;
                         // self.get_res(res.i);
                         self.view = View::Res;
-                        self.loading = false;
                     }
                 }
             }
