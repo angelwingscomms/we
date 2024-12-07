@@ -62,7 +62,7 @@ impl App {
         let loading = self.loading.clone();
         let a_got = self.a_got.clone();
         let c = ctx.clone();
-        let mut url = format!("{}/a?q={}", dotenvy::dotenv!("API"), self.a);
+        let mut url = format!("{}/a?q={}", dotenv_codegen::dotenv!("API"), self.a);
         if self.a_page > 1 {
             url.push_str(&format!("&p={}", self.a_page));
         }
