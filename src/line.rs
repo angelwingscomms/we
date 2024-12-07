@@ -14,6 +14,7 @@ pub struct Line {
     id: i64,
     next_id: i64,
     play: bool,
+    show_texts: bool,
     controls: bool,
     size: f32,
     height: f32,
@@ -103,7 +104,19 @@ impl App {
                 }
             });
         }
-        if ui.button("show all texts").clicked() {
+        if ui
+            .button({
+                if self.line.show_texts {
+                    "hide texts"
+                } else {
+                    "show texts"
+                }
+            })
+            .clicked
+        {
+            self.line.show_texts = !self.line.show_texts;
+        }
+        if self.line.show_texts {
             for (id, text) in self.line.texts.clone() {
                 if ui.button(&text.name).clicked() {
                     self.line.id = id
