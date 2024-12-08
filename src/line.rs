@@ -15,6 +15,7 @@ pub struct Line {
     next_id: i64,
     play: bool,
     show_texts: bool,
+    show_input: bool,
     controls: bool,
     size: f32,
     height: f32,
@@ -28,7 +29,20 @@ use crate::App;
 
 impl App {
     pub fn line(&mut self, ui: &mut egui::Ui) {
-        if ui.button("add text").clicked() {
+        if ui
+            .button({
+                if self.line.show_input {
+                    "hide input"
+                } else {
+                    "show input"
+                }
+            })
+            .clicked
+        {
+            self.line.show_input = !self.line.show_input;
+        }
+        if ui.button("new text").clicked() {
+            println!("{}", self.line.next_id);
             self.line.texts.insert(
                 self.line.next_id,
                 Text {
@@ -44,13 +58,15 @@ impl App {
                 if let Some(t) = self.line.texts.get_mut(&self.line.id) {
                     ui.text_edit_singleline(&mut t.name);
                 }
-                egui::ScrollArea::vertical()
-                    .max_height(270.0)
-                    .show(ui, |ui| {
-                        if let Some(t) = self.line.texts.get_mut(&self.line.id) {
-                            ui.text_edit_multiline(&mut t.text);
-                        }
-                    });
+                if self.line.show_input {
+                    egui::ScrollArea::vertical()
+                        .max_height(270.0)
+                        .show(ui, |ui| {
+                            if let Some(t) = self.line.texts.get_mut(&self.line.id) {
+                                ui.text_edit_multiline(&mut t.text);
+                            }
+                        });
+                }
                 ui.add_space(9.0);
                 egui::ScrollArea::vertical()
                     .id_salt("second scroll area")
@@ -59,7 +75,8 @@ impl App {
                     .show(ui, |ui| {
                         if ui
                             .label(WidgetText::RichText(
-                                RichText::new(&self.line.texts[&self.line.id].text).size(self.line.size),
+                                RichText::new(&self.line.texts[&self.line.id].text)
+                                    .size(self.line.size),
                             ))
                             .clicked()
                         {
@@ -97,10 +114,10 @@ impl App {
                     self.line.controls = !self.line.controls;
                 }
                 if self.line.controls {
-                    ui.add(egui::Slider::new(&mut self.line.size, 0.0..=1080.0).text("font size"));
-                    ui.add(egui::Slider::new(&mut self.line.height, 0.0..=1080.0).text("height"));
-                    ui.add(egui::Slider::new(&mut self.line.width, 0.0..=1080.0).text("width"));
-                    ui.add(egui::Slider::new(&mut self.line.speed, 0.0..=1080.0).text("speed"));
+                    ui.add(egui::Slider::new(&mut self.line.size, 0.0..=1080.0).text("font size").drag_value_speed(0.0108));
+                    ui.add(egui::Slider::new(&mut self.line.height, 0.0..=1080.0).text("height").drag_value_speed(0.0108));
+                    ui.add(egui::Slider::new(&mut self.line.width, 0.0..=1080.0).text("width").drag_value_speed(0.0108));
+                    ui.add(egui::Slider::new(&mut self.line.speed, 0.0..=1080.0).text("speed").drag_value_speed(0.0108));
                 }
             });
         }
@@ -118,12 +135,17 @@ impl App {
         }
         if self.line.show_texts {
             for (id, text) in self.line.texts.clone() {
-                if ui.button(&text.name).clicked() {
-                    self.line.id = id
-                }
-                if ui.button("delete").clicked() {
-                    self.line.texts.remove(&id);
-                }
+                ui.horizontal(|ui| {
+                    if ui.button(&text.name).clicked() {
+                        self.line.id = id;
+                    }
+                    if ui.button("delete").clicked() {
+                        println!("{}", id);
+                        if self.line.texts.contains_key(&id) {
+                            self.line.texts.remove(&id);
+                        }
+                    }
+                });
             }
         }
     }
