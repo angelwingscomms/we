@@ -7,7 +7,7 @@ pub struct Text {
     text: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Default, Debug)]
 #[serde(default)]
 pub struct Line {
     texts: HashMap<i64, Text>,
@@ -16,6 +16,8 @@ pub struct Line {
     play: bool,
     show_texts: bool,
     show_input: bool,
+    #[serde(skip)]
+    commonmark_cache: CommonMarkCache,
     controls: bool,
     size: f32,
     height: f32,
@@ -23,7 +25,27 @@ pub struct Line {
     speed: f32,
 }
 
+impl Clone for Line {
+    fn clone(&self) -> Self {
+        Self {
+            texts: self.texts.clone(),
+            id: self.id.clone(),
+            next_id: self.next_id.clone(),
+            play: self.play.clone(),
+            show_input: self.show_input.clone(),
+            commonmark_cache: CommonMarkCache::default(),
+            controls: self.controls.clone(),
+            size: self.size.clone(),
+            height: self.height.clone(),
+            width: self.width.clone(),
+            speed: self.speed.clone(),
+            show_texts: self.show_texts.clone(),
+        }
+    }
+}
+
 use egui::{RichText, WidgetText};
+use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
 use crate::App;
 
@@ -73,12 +95,12 @@ impl App {
                     .max_height(self.line.height)
                     .max_width(self.line.width)
                     .show(ui, |ui| {
-                        if ui
-                            .label(WidgetText::RichText(
-                                RichText::new(&self.line.texts[&self.line.id].text)
-                                    .size(self.line.size),
-                            ))
-                            .clicked()
+                        if ui.label(WidgetText::RichText(
+                            RichText::new(&self.line.texts[&self.line.id].text)
+                                .size(self.line.size),
+                        )).clicked()
+                        // CommonMarkViewer::new().show(ui, &mut self.line.commonmark_cache, &self.line.texts[&self.line.id].text)
+                        // .response.clicked()
                         {
                             self.line.play = !self.line.play
                         };
@@ -114,10 +136,26 @@ impl App {
                     self.line.controls = !self.line.controls;
                 }
                 if self.line.controls {
-                    ui.add(egui::Slider::new(&mut self.line.size, 0.0..=1080.0).text("font size").drag_value_speed(0.0108));
-                    ui.add(egui::Slider::new(&mut self.line.height, 0.0..=1080.0).text("height").drag_value_speed(0.0108));
-                    ui.add(egui::Slider::new(&mut self.line.width, 0.0..=1080.0).text("width").drag_value_speed(0.0108));
-                    ui.add(egui::Slider::new(&mut self.line.speed, 0.0..=1080.0).text("speed").drag_value_speed(0.0108));
+                    ui.add(
+                        egui::Slider::new(&mut self.line.size, 0.0..=1080.0)
+                            .text("font size")
+                            .drag_value_speed(0.0108),
+                    );
+                    ui.add(
+                        egui::Slider::new(&mut self.line.height, 0.0..=1080.0)
+                            .text("height")
+                            .drag_value_speed(0.0108),
+                    );
+                    ui.add(
+                        egui::Slider::new(&mut self.line.width, 0.0..=1080.0)
+                            .text("width")
+                            .drag_value_speed(0.0108),
+                    );
+                    ui.add(
+                        egui::Slider::new(&mut self.line.speed, 0.0..=1080.0)
+                            .text("speed")
+                            .drag_value_speed(0.0108),
+                    );
                 }
             });
         }

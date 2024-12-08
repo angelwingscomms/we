@@ -21,7 +21,7 @@ pub struct App {
     view: View,
     #[serde(skip)]
     pub loading: Arc<Mutex<bool>>,
-    auth: Auth,
+    auth: Vec<Auth>,
     pub line: Line,
 
     // a

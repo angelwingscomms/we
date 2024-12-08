@@ -28,6 +28,8 @@ anyhow = "1.0.93"
 serde_json = "1.0.133"
 egui-toast = "0.15.0"
 dotenv_codegen = "0.15.0"
+egui_commonmark = "0.18.0"
+image = "0.25.5"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
