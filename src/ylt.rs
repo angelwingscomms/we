@@ -6,20 +6,20 @@ pub struct YLT {
     pub v: i8,
 }
 
-fn ylt(app: &mut crate::App, ui: &egui::Ui) {
-    // ui.add(
-    //     egui::Slider::new(&mut app.ylt.b, 0...=1080.)
-    //         .text("book")
-    //         .drag_value_speed(0.0108),
-    // );
-    // ui.add(
-    //     egui::Slider::new(&mut app.ylt.b, 0.0..=1080.0)
-    //         .text("chapter")
-    //         .drag_value_speed(0.0108),
-    // );
-    // ui.add(
-    //     egui::Slider::new(&mut app.ylt.b, 0.0..=1080.0)
-    //         .text("verse")
-    //         .drag_value_speed(0.0108),
-    // );
+fn _ylt(app: &mut crate::App, ui: &mut egui::Ui) {
+    ui.add(
+        egui::Slider::new(&mut app.ylt.b, 0..=66)
+            .text("book")
+            .drag_value_speed(0.0108),
+    );
+    ui.add(
+        egui::Slider::new(&mut app.ylt.b, 0..=126)
+            .text("chapter")
+            .drag_value_speed(0.0108),
+    );
+    ui.add(
+        egui::Slider::new(&mut app.ylt.b, 0..=126)
+            .text("verse")
+            .drag_value_speed(0.0108),
+    );
 }

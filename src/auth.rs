@@ -3,7 +3,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 // use wallet_adapter::WalletAdapter;
 
-use crate::{http, util::{self, toast}, App};
+use crate::App;
 
 // modal
 //  if users

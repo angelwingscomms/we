@@ -130,7 +130,7 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| match self.view {
-            View::A => self.a(ui, ctx),
+            View::A => crate::a::a(self, ui, ctx),
             View::Exams => self.exams(ui),
             View::Line => self.line(ui),
             View::Auth => self.auth(ui),
