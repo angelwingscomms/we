@@ -7,34 +7,43 @@ use serde_json::json;
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
 #[serde(default)]
-pub struct AA {
-    pub i: String,
+pub struct Result {
+    pub i: i64,
     pub t: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
 #[serde(default)]
-pub struct A {
+pub struct Stuff {
     pub search: String,
     pub new: String,
     pub page: i64,
     #[serde(skip)]
-    pub results: Arc<Mutex<Vec<AA>>>,
+    pub results: Arc<Mutex<Vec<Result>>>,
     #[serde(skip)]
     pub got: Arc<Mutex<bool>>,
+    pub current: Option<Result>,
+    pub view: View,
 }
 
-pub fn render(app: &mut crate::App, ui: &mut egui::Ui, ctx: &egui::Context) {
+#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
+pub enum View {
+    #[default]
+    Top,
+    Result,
+}
+
+pub fn render(app: &mut crate::App, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        ui.text_edit_singleline(&mut app.a.search);
+        ui.text_edit_singleline(&mut app.stuff.search);
         if ui.button("🔍").clicked() {
-            search(app, ctx);
+            search(app, ui.ctx());
         }
     });
     ui.horizontal(|ui| {
-        ui.text_edit_singleline(&mut app.a.new);
+        ui.text_edit_singleline(&mut app.stuff.new);
         if ui.button("+").clicked() {
-            add(app, ctx);
+            add(app, ui.ctx());
         }
     });
 
@@ -43,14 +52,20 @@ pub fn render(app: &mut crate::App, ui: &mut egui::Ui, ctx: &egui::Context) {
     if *app.loading.lock() {
         ui.label("loading...");
     } else {
-        if *app.a.got.lock() {
-            if app.a.results.lock().len() > 0 {
-                for a in app.a.results.lock().clone() {
-                    ui.label(a.t);
+        if *app.stuff.got.lock() {
+            if app.stuff.results.lock().len() > 0 {
+                if let Some(current) = &app.stuff.current {
+                    ui.label(&current.t);
+                    ui.add_space(9.0);
+                }
+                for a in app.stuff.results.lock().clone() {
+                    if ui.label(&a.t).clicked() {
+                        app.stuff.current = Some(a);
+                    };
                     ui.separator();
                 }
             } else {
-                if app.a.page > 1 {
+                if app.stuff.page > 1 {
                     ui.label("no more results");
                 } else {
                     ui.label("no results");
@@ -58,16 +73,16 @@ pub fn render(app: &mut crate::App, ui: &mut egui::Ui, ctx: &egui::Context) {
             }
             ui.add_space(27.0);
             ui.horizontal(|ui| {
-                if app.a.page > 1 {
+                if app.stuff.page > 1 {
                     if ui.button("previous").clicked() {
-                        app.a.page -= 1;
-                        search(app, ctx);
+                        app.stuff.page -= 1;
+                        search(app, ui.ctx());
                     }
                 }
-                ui.label(format!("page {}", app.a.page));
+                ui.label(format!("page {}", app.stuff.page));
                 if ui.button("next").clicked() {
-                    app.a.page += 1;
-                    search(app, ctx);
+                    app.stuff.page += 1;
+                    search(app, ui.ctx());
                 }
             });
         }
@@ -76,15 +91,18 @@ pub fn render(app: &mut crate::App, ui: &mut egui::Ui, ctx: &egui::Context) {
 
 pub fn search(app: &mut crate::App, ctx: &egui::Context) {
     *app.loading.lock() = true;
-    *app.a.results.lock() = Vec::new();
-    let aa = app.a.results.clone();
+    *app.stuff.results.lock() = Vec::new();
+    let aa = app.stuff.results.clone();
     let loading = app.loading.clone();
-    let a_got = app.a.got.clone();
+    let a_got = app.stuff.got.clone();
     let c = ctx.clone();
-    let mut url = format!("{}/a?q={}", "http://localhost:8000", app.a.search);
     // let mut url = format!("{}/a?q={}", dotenv_codegen::dotenv!("API"), app.a);
-    if app.a.page > 1 {
-        url.push_str(&format!("&p={}", app.a.page));
+    let mut url = format!("{}/a?q={}", "http://localhost:8000", app.stuff.search);
+    if let Some(current) = &app.stuff.current {
+        url.push_str(&format!("&i={}", current.i));
+    }
+    if app.stuff.page > 1 {
+        url.push_str(&format!("&p={}", app.stuff.page));
     }
     ehttp::fetch(
         ehttp::Request::get(url),
@@ -137,7 +155,7 @@ pub fn search(app: &mut crate::App, ctx: &egui::Context) {
 
 pub fn add(app: &mut crate::App, ctx: &egui::Context) {
     let c = ctx.clone();
-    if let Ok(v) = serde_json::to_vec(&json!({"t": app.a.new})) {
+    if let Ok(v) = serde_json::to_vec(&json!({"t": app.stuff.new})) {
         let mut request = ehttp::Request::post("http://127.0.0.1:8000/a", v);
         request.headers.insert("Content-Type", "application/json");
         ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {

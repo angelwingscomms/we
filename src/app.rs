@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use crate::{auth::Auth, exams::Exams, line::Line, user, ylt::YLT};
+use crate::{auth::Auth, exams::Exams, line::Line, stuff, user, ylt::YLT};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone)]
@@ -16,6 +16,7 @@ pub struct App {
     pub line: Line,
     pub user: user::State,
     pub a: crate::a::A,
+    pub stuff: crate::stuff::Stuff,
     
     pub ylt: YLT,
 
@@ -48,6 +49,7 @@ pub enum View {
     Exams,
     Line,
     UserSearch,
+    Stuff,
     User,
     Edit,
 }
@@ -67,7 +69,7 @@ impl App {
         }
 
         let mut a: Self = Default::default();
-        a.a.a_page = 1;
+        a.a.page = 1;
         a
     }
 }
@@ -91,6 +93,9 @@ impl eframe::App for App {
                 // let is_web = cfg!(target_arch = "wasm32");
                 // if !is_web {
                 ui.menu_button("File", |ui| {
+                    if ui.button("stuff").clicked() {
+                        self.view = View::Stuff;
+                    }
                     if ui.button("a").clicked() {
                         self.view = View::A;
                     }
@@ -130,11 +135,12 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| match self.view {
-            View::A => crate::a::a(self, ui, ctx),
+            View::A => crate::a::render(self, ui, ctx),
             View::Exams => self.exams(ui),
             View::Line => self.line(ui),
             View::Auth => self.auth(ui),
             View::UserSearch => user::views::search(self, ui),
+            View::Stuff => stuff::render(self, ui),
             View::User => user::views::user(self, ui),
             View::Edit => user::views::edit(self, ui),
         });
