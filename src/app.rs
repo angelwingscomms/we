@@ -1,48 +1,28 @@
 use std::sync::Arc;
 
-use egui::mutex::Mutex;
+use parking_lot::Mutex;
 
-use crate::{exams::Exams, line::Line};
-
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone)]
-#[serde(default)]
-pub struct Auth {
-    token: String,
-    user: String,
-}
+use crate::{auth::Auth, exams::Exams, line::Line, user, ylt::YLT};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
     value: String,
-    score: f32,
-    res: Res,
-    view: View,
+    pub view: View,
     #[serde(skip)]
     pub loading: Arc<Mutex<bool>>,
-    auth: Vec<Auth>,
+    pub auth: Auth,
     pub line: Line,
-
-    // a
-    pub a: String,
-
-    #[serde(skip)]
-    pub aa: Arc<Mutex<Vec<AA>>>,
-    pub sa: String,
-    pub a_page: i64,
-    #[serde(skip)]
-    pub a_got: Arc<Mutex<bool>>,
+    pub user: user::State,
+    pub a: crate::a::A,
+    
+    pub ylt: YLT,
 
     pub f: F,
 
     pub e: Exams,
 
-    pub n: String,
-    pub similarity: String,
-    pub contact: Vec<Contact>,
-    pub tags: Vec<String>,
-    pub results: Vec<Result>,
     pub search_tags: Vec<String>,
 }
 
@@ -55,56 +35,26 @@ pub struct F {
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
 #[serde(default)]
-pub struct AA {
-    pub i: i64,
-    pub t: String,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
-#[serde(default)]
-struct Result {
+pub struct Result {
     i: i64,
     n: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
-#[serde(default)]
-struct Res {
-    n: String,
-    c: Vec<Contact>,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
-#[serde(default)]
-pub struct Contact {
-    pub n: String,
-    pub l: String,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
-enum View {
+pub enum View {
     #[default]
     A,
-    Res,
-    Search,
+    Auth,
     Exams,
     Line,
+    UserSearch,
+    User,
     Edit,
 }
 
 impl App {
     /// Called once before the first frame.
     ///
-
-    pub fn search(&mut self) {
-        //todo
-    }
-
-    pub fn similarity(&mut self) {}
-
-    pub fn get_res(&mut self, i: i64) {}
-
-    pub fn save(&mut self) {}
 
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
@@ -117,7 +67,7 @@ impl App {
         }
 
         let mut a: Self = Default::default();
-        a.a_page = 1;
+        a.a.a_page = 1;
         a
     }
 }
@@ -138,7 +88,7 @@ impl eframe::App for App {
 
             egui::menu::bar(ui, |ui| {
                 // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
+                // let is_web = cfg!(target_arch = "wasm32");
                 // if !is_web {
                 ui.menu_button("File", |ui| {
                     if ui.button("a").clicked() {
@@ -147,8 +97,10 @@ impl eframe::App for App {
                     if ui.button("line").clicked() {
                         self.view = View::Line;
                     }
-                    if ui.button("Edit profile").clicked() {
-                        self.view = View::Edit;
+                    if self.auth.user.is_some() {
+                        if ui.button("Edit profile").clicked() {
+                            self.view = View::Edit;
+                        }
                     }
                     if ui.button("Exams").clicked() {
                         self.view = View::Exams;
@@ -157,6 +109,19 @@ impl eframe::App for App {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
+                if let Some(user) = &self.auth.user {
+                    if ui.button("logout").clicked() {
+                        self.auth.users.lock().retain(|u| u.id != user.id);
+                        self.auth.user = None;
+                    }
+                    if ui.button("switch user").clicked() {
+                        self.view = View::Auth;
+                    }
+                } else {
+                    if ui.button("login").clicked() {
+                        self.view = View::Auth;
+                    }
+                }
                 ui.add_space(16.0);
                 // }
 
@@ -165,41 +130,13 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| match self.view {
-            View::A => {
-                self.a(ui, ctx);
-            }
-            View::Exams => {
-                self.exams(ui);
-            }
-            View::Line => {
-                self.line(ui);
-            }
-            View::Edit => self.edit(ui),
-            View::Search => {
-                ui.horizontal(|ui| {
-                    ui.text_edit_singleline(&mut self.value);
-                    if ui.button("Search").clicked() {
-                        self.search();
-                    }
-                });
-
-                for res in &mut self.results {
-                    if ui.label(res.n.clone()).clicked() {
-                        // self.get_res(res.i);
-                        self.view = View::Res;
-                    }
-                }
-            }
-
-            View::Res => {
-                ui.label(&self.res.n);
-                ui.label("Similarity: ");
-                ui.label(&self.similarity);
-                ui.label(format!("Similarity score: {}", self.score));
-                for contact in self.res.c.clone() {
-                    ui.horizontal(|ui| ui.hyperlink_to(contact.n, contact.l));
-                }
-            }
+            View::A => self.a(ui, ctx),
+            View::Exams => self.exams(ui),
+            View::Line => self.line(ui),
+            View::Auth => self.auth(ui),
+            View::UserSearch => user::views::search(self, ui),
+            View::User => user::views::user(self, ui),
+            View::Edit => user::views::edit(self, ui),
         });
     }
 }

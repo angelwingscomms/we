@@ -1,21 +1,43 @@
+use std::sync::Arc;
+
 use anyhow::{anyhow, Context};
 use egui::Align2;
+use parking_lot::Mutex;
 use serde_json::json;
 
 use crate::App;
 
+#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
+#[serde(default)]
+pub struct AA {
+    pub i: i64,
+    pub t: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
+#[serde(default)]
+pub struct A {
+    #[serde(skip)]
+    pub aa: Arc<Mutex<Vec<AA>>>,
+    pub a: String,
+    pub sa: String,
+    pub a_page: i64,
+    #[serde(skip)]
+    pub a_got: Arc<Mutex<bool>>,
+}
+
 impl App {
     pub fn a(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         ui.horizontal(|ui| {
-            ui.text_edit_singleline(&mut self.a);
+            ui.text_edit_singleline(&mut self.a.a);
             if ui.button("🔍").clicked() {
                 self.a_search(ctx);
             }
         });
         ui.horizontal(|ui| {
-            ui.text_edit_singleline(&mut self.sa);
+            ui.text_edit_singleline(&mut self.a.sa);
             if ui.button("+").clicked() {
-                self.a_add(ui, ctx);
+                self.a_add(ctx);
             }
         });
 
@@ -24,14 +46,14 @@ impl App {
         if *self.loading.lock() {
             ui.label("loading...");
         } else {
-            if *self.a_got.lock() {
-                if self.aa.lock().len() > 0 {
-                    for a in self.aa.lock().clone() {
+            if *self.a.a_got.lock() {
+                if self.a.aa.lock().len() > 0 {
+                    for a in self.a.aa.lock().clone() {
                         ui.label(a.t);
                         ui.separator();
                     }
                 } else {
-                    if self.a_page > 1 {
+                    if self.a.a_page > 1 {
                         ui.label("no more results");
                     } else {
                         ui.label("no results");
@@ -39,15 +61,15 @@ impl App {
                 }
                 ui.add_space(27.0);
                 ui.horizontal(|ui| {
-                    if self.a_page > 1 {
+                    if self.a.a_page > 1 {
                         if ui.button("previous").clicked() {
-                            self.a_page -= 1;
+                            self.a.a_page -= 1;
                             self.a_search(ctx);
                         }
                     }
-                    ui.label(format!("page {}", self.a_page));
+                    ui.label(format!("page {}", self.a.a_page));
                     if ui.button("next").clicked() {
-                        self.a_page += 1;
+                        self.a.a_page += 1;
                         self.a_search(ctx);
                     }
                 });
@@ -57,15 +79,15 @@ impl App {
 
     pub fn a_search(&mut self, ctx: &egui::Context) {
         *self.loading.lock() = true;
-        *self.aa.lock() = Vec::new();
-        let aa = self.aa.clone();
+        *self.a.aa.lock() = Vec::new();
+        let aa = self.a.aa.clone();
         let loading = self.loading.clone();
-        let a_got = self.a_got.clone();
+        let a_got = self.a.a_got.clone();
         let c = ctx.clone();
-        let mut url = format!("{}/a?q={}", "http://localhost:8000", self.a);
+        let mut url = format!("{}/a?q={}", "http://localhost:8000", self.a.a);
         // let mut url = format!("{}/a?q={}", dotenv_codegen::dotenv!("API"), self.a);
-        if self.a_page > 1 {
-            url.push_str(&format!("&p={}", self.a_page));
+        if self.a.a_page > 1 {
+            url.push_str(&format!("&p={}", self.a.a_page));
         }
         ehttp::fetch(
             ehttp::Request::get(url),
@@ -116,9 +138,9 @@ impl App {
         // ctx.request_repaint();
     }
 
-    pub fn a_add(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+    pub fn a_add(&mut self, ctx: &egui::Context) {
         let c = ctx.clone();
-        if let Ok(v) = serde_json::to_vec(&json!({"t": self.sa})) {
+        if let Ok(v) = serde_json::to_vec(&json!({"t": self.a.sa})) {
             let mut request = ehttp::Request::post("http://127.0.0.1:8000/a", v);
             request.headers.insert("Content-Type", "application/json");
             ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
