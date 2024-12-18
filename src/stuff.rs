@@ -58,8 +58,10 @@ pub fn render(app: &mut crate::App, ui: &mut egui::Ui) {
                     ui.label(&current.t);
                     ui.add_space(9.0);
                 }
-                for a in app.stuff.results.lock().clone() {
+                let results = app.stuff.results.lock().clone();
+                for a in results {
                     if ui.label(&a.t).clicked() {
+                        search(app, ui.ctx());
                         app.stuff.current = Some(a);
                     };
                     ui.separator();
