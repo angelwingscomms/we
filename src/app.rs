@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use crate::{auth::Auth, exams::Exams, line::Line, stuff, user, ylt::YLT};
+use crate::{auth::Auth, exams::Exams, line::Line, stuff, user, ylt::{self, YLT}};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Default)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
     value: String,
@@ -27,26 +27,27 @@ pub struct App {
     pub search_tags: Vec<String>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Default, Debug)]
 #[serde(default)]
 pub struct F {
     q: String,
     a: Vec<String>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Default, Debug)]
 #[serde(default)]
 pub struct Result {
     i: i64,
     n: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Default, Debug)]
 pub enum View {
     #[default]
     A,
     Auth,
     Exams,
+    YLT,
     Line,
     UserSearch,
     Stuff,
@@ -96,6 +97,9 @@ impl eframe::App for App {
                     if ui.button("stuff").clicked() {
                         self.view = View::Stuff;
                     }
+                    if ui.button("ylt").clicked() {
+                        self.view = View::YLT;
+                    }
                     if ui.button("a").clicked() {
                         self.view = View::A;
                     }
@@ -139,6 +143,7 @@ impl eframe::App for App {
             View::Exams => self.exams(ui),
             View::Line => self.line(ui),
             View::Auth => self.auth(ui),
+            View::YLT => ylt::ylt(self, ui),
             View::UserSearch => user::views::search(self, ui),
             View::Stuff => stuff::render(self, ui),
             View::User => user::views::user(self, ui),

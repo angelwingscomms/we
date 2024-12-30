@@ -2,8 +2,11 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use egui::Align2;
+use ewebsock::{WsReceiver, WsSender};
 use parking_lot::Mutex;
 use serde_json::json;
+
+use crate::util::toast;
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
 #[serde(default)]
@@ -12,7 +15,7 @@ pub struct Result {
     pub t: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Default)]
 #[serde(default)]
 pub struct Stuff {
     pub search: String,
@@ -24,6 +27,11 @@ pub struct Stuff {
     pub got: Arc<Mutex<bool>>,
     pub current: Option<Result>,
     pub view: View,
+    #[serde(skip)]
+    pub sender: Option<WsSender>,
+    #[serde(skip)]
+    pub receiver: Option<Arc<Mutex<WsReceiver>>>,
+    pub receiving: bool
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone, Debug)]
@@ -34,6 +42,24 @@ pub enum View {
 }
 
 pub fn render(app: &mut crate::App, ui: &mut egui::Ui) {
+    let options = ewebsock::Options::default();
+    
+    if !app.stuff.receiving {
+        match ewebsock::connect(format!("ws://{}", "localhost:8000"), options) {
+            Ok((sender, receiver)) => {
+                app.stuff.sender = Some(sender);
+                app.stuff.receiver = Some(Arc::new(Mutex::new(receiver)));
+                
+                #[cfg(target_arch = "wasm32")]
+                wasm_bindgen_futures::spawn_local({
+                    while let Some(event) = receiver.try_recv() {
+                        println!("event {:?}", event);
+                    }
+                })
+            }
+            Err(_) => toast(ui.ctx(), "error connecting to server to get messages in realtime, please reload the page to see new messages"),
+        }
+    }
     ui.horizontal(|ui| {
         ui.text_edit_singleline(&mut app.stuff.search);
         if ui.button("🔍").clicked() {
@@ -157,7 +183,11 @@ pub fn search(app: &mut crate::App, ctx: &egui::Context) {
 
 pub fn add(app: &mut crate::App, ctx: &egui::Context) {
     let c = ctx.clone();
-    if let Ok(v) = serde_json::to_vec(&json!({"t": app.stuff.new})) {
+    let mut body = json!({"t": app.stuff.new});
+    if let Some(current) = &app.stuff.current {
+        body["i"] = current.i.into();
+    }
+    if let Ok(v) = serde_json::to_vec(&body) {
         let mut request = ehttp::Request::post("http://127.0.0.1:8000/a", v);
         request.headers.insert("Content-Type", "application/json");
         ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {

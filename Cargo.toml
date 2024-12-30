@@ -31,6 +31,8 @@ dotenv_codegen = "0.15.0"
 image = "0.25.5"
 web-sys = "0.3.76"
 parking_lot = { version = "0.12.3", features = ["deadlock_detection"] }
+wallet-adapter = "1.0.4-beta"
+ewebsock = "0.8.0"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
